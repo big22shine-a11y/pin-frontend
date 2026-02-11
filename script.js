@@ -25,6 +25,10 @@ let db = null;
 // デバッグログ：スクリプト読み込み確認
 console.log('script.js loaded - firebase defined?', typeof firebase !== 'undefined');
 
+// セッションIDを生成（このブラウザセッション固有のID）
+const sessionId = 'user-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+console.log('Session ID:', sessionId);
+
 /* ===== 色選択処理 ===== */
 colorRadios.forEach((radio) => {
   radio.addEventListener("change", () => {
@@ -72,6 +76,7 @@ function addPinFromData(key, data) {
   pin.dataset.color = data.color;
   pin.dataset.createdAt = data.createdAt || new Date().toISOString();
   pin.dataset.key = key;
+  pin.dataset.createdBy = data.createdBy || 'unknown';
 
   pin.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -86,7 +91,15 @@ function addPinFromData(key, data) {
       `${date.getMinutes()}分` +
       `${date.getSeconds()}秒`;
 
-    pinComment.textContent = `色：${pin.dataset.color} / 刺された時刻：${formattedTime}`;
+    // 削除権の確認
+    const canDelete = (pin.dataset.createdBy === sessionId);
+    const deleteStatus = canDelete ? '（削除可）' : '（削除不可 - 他のユーザーが作成）';
+    pinComment.textContent = `色：${pin.dataset.color} / 刺された時刻：${formattedTime} ${deleteStatus}`;
+
+    // 削除ボタンの有効/無効を切り替え
+    deleteButton.disabled = !canDelete;
+    deleteButton.style.opacity = canDelete ? '1' : '0.5';
+    deleteButton.style.cursor = canDelete ? 'pointer' : 'not-allowed';
     pinInfo.classList.remove("hidden");
   });
 
@@ -133,6 +146,7 @@ wrapper.addEventListener("click", (e) => {
   pin.dataset.color = currentColor;
   const createdAt = new Date();
   pin.dataset.createdAt = createdAt.toISOString();
+  pin.dataset.createdBy = sessionId;
 
   pin.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -147,7 +161,15 @@ wrapper.addEventListener("click", (e) => {
       `${date.getMinutes()}分` +
       `${date.getSeconds()}秒`;
 
-    pinComment.textContent = `色：${pin.dataset.color} / 刺された時刻：${formattedTime}`;
+    // 削除権の確認
+    const canDelete = (pin.dataset.createdBy === sessionId);
+    const deleteStatus = canDelete ? '（削除可）' : '（削除不可 - 他のユーザーが作成）';
+    pinComment.textContent = `色：${pin.dataset.color} / 刺された時刻：${formattedTime} ${deleteStatus}`;
+
+    // 削除ボタンの有効/無効を切り替え
+    deleteButton.disabled = !canDelete;
+    deleteButton.style.opacity = canDelete ? '1' : '0.5';
+    deleteButton.style.cursor = canDelete ? 'pointer' : 'not-allowed';
     pinInfo.classList.remove("hidden");
   });
 
@@ -158,7 +180,7 @@ wrapper.addEventListener("click", (e) => {
   if (db) {
     const pinsRef = db.ref('pins');
     const newRef = pinsRef.push();
-    newRef.set({ x, y, color: currentColor, createdAt: pin.dataset.createdAt })
+    newRef.set({ x, y, color: currentColor, createdAt: pin.dataset.createdAt, createdBy: sessionId })
       .then(() => {
         // set dataset key so child_added handler won't duplicate
         pin.dataset.key = newRef.key;
@@ -171,6 +193,12 @@ wrapper.addEventListener("click", (e) => {
 /* ===== 削除ボタンが押されたとき ===== */
 deleteButton.addEventListener("click", () => {
   if (!selectedPin) return;
+
+  // 削除権チェック
+  if (selectedPin.dataset.createdBy !== sessionId) {
+    alert('このピンは別のユーザーが作成したため、削除できません。');
+    return;
+  }
 
   const key = selectedPin.dataset.key;
   if (db && key) {
