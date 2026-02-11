@@ -175,6 +175,14 @@ wrapper.addEventListener("click", (e) => {
 
   wrapper.appendChild(pin);
 
+  // ローカルのブラウザ内タイマーで30秒後にピンを画面から削除
+  setTimeout(() => {
+    if (pin.parentNode === wrapper) {
+      pin.remove();
+      console.log('Pin removed from DOM after 30s:', pin.dataset.key || 'local-pin');
+    }
+  }, 30000);
+
   // DBがある場合は保存（push）し、キーを割り当てる
   console.log('Attempting to save pin to DB? db=', !!db);
   if (db) {
