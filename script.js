@@ -134,7 +134,8 @@ wrapper.addEventListener("click", (e) => {
   if (e.target.id !== "image") return;
 
   // セッションIDごとのピン数制限チェック（1人当たり5個）
-  const userPins = wrapper.querySelectorAll(`.pin[data-created-by="${sessionId}"]`);
+  // DBに保存済みのピン（keyを持つ）だけをカウント
+  const userPins = wrapper.querySelectorAll(`.pin[data-created-by="${sessionId}"][data-key]`);
   if (userPins.length >= 5) {
     alert('このセッションではピンを5個まで立てられます。古いピンが自動削除されるまで待つか、手動で削除してください。');
     return;
