@@ -136,6 +136,17 @@ wrapper.addEventListener("click", (e) => {
   // セッションIDごとのピン数制限チェック（1人当たり5個）
   // DBに保存済みのピン（keyを持つ）だけをカウント
   const userPins = wrapper.querySelectorAll(`.pin[data-created-by="${sessionId}"][data-key]`);
+  console.log('=== ピン数カウント ===');
+  console.log('sessionId:', sessionId);
+  console.log('セレクタで該当するピン:', userPins.length);
+  userPins.forEach((pin, index) => {
+    console.log(`  ${index + 1}. key=${pin.dataset.key}, color=${pin.dataset.color}, createdAt=${pin.dataset.createdAt}`);
+  });
+  
+  // すべてのピンも確認
+  const allPins = wrapper.querySelectorAll(`.pin`);
+  console.log('DOMに存在するすべてのピン数:', allPins.length);
+  
   if (userPins.length >= 5) {
     alert('このセッションではピンを5個まで立てられます。古いピンが自動削除されるまで待つか、手動で削除してください。');
     return;
