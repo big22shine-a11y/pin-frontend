@@ -68,6 +68,14 @@ function addPinFromData(key, data) {
   // 既に同一キーの要素があれば追加しない
   if (document.querySelector(`.pin[data-key=\"${key}\"]`)) return;
 
+  // 仮キーのピン（同じcreatedAtを持つ）があれば削除（DBキーに置き換わるため）
+  const tempKey = 'temp-' + data.createdAt;
+  const tempPin = document.querySelector(`.pin[data-key=\"${tempKey}\"]`);
+  if (tempPin) {
+    tempPin.remove();
+    console.log('Removed temporary pin, replacing with DB pin:', key);
+  }
+
   const pin = document.createElement("div");
   pin.className = "pin";
   pin.style.left = `${data.x}px`;
@@ -109,6 +117,23 @@ function addPinFromData(key, data) {
 /* ===== DB のイベントリスナをセット（存在する場合） ===== */
 if (db) {
   const pinsRef = db.ref('pins');
+
+  // ページロード時に30秒以上古いピンを削除
+  pinsRef.once('value', (snapshot) => {
+    const now = new Date().getTime();
+    snapshot.forEach((childSnapshot) => {
+      const key = childSnapshot.key;
+      const data = childSnapshot.val();
+      const createdAtTime = new Date(data.createdAt).getTime();
+      const ageMs = now - createdAtTime;
+      
+      // 30秒以上古いピンはDBから削除
+      if (ageMs > 30000) {
+        console.log(`Cleaning up old pin: ${key} (age: ${Math.floor(ageMs / 1000)}s)`);
+        pinsRef.child(key).remove();
+      }
+    });
+  });
 
   // 新しいピンが追加されたら反映
   pinsRef.on('child_added', (snapshot) => {
