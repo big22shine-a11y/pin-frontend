@@ -1,6 +1,9 @@
 // 画像とピンを包む要素を取得
 const wrapper = document.getElementById("image-wrapper");
 
+// ピンを立てる対象画像
+const imageEl = document.getElementById("image");
+
 // ピン情報表示エリア
 const pinInfo = document.getElementById("pin-info");
 
@@ -45,6 +48,14 @@ if (!sessionId) {
 console.log('Session ID:', sessionId);
 
 const FADE_DURATION_MS = 30000;
+
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
 
 function scheduleFadeAndDelete(pinEl, createdAtIso, key) {
   const createdAtTime = new Date(createdAtIso).getTime();
@@ -126,13 +137,24 @@ function addPinFromData(key, data) {
 
   const pin = document.createElement("div");
   pin.className = "pin";
-  pin.style.left = `${data.x}px`;
-  pin.style.top = `${data.y}px`;
+  const xPct = isFiniteNumber(data.xPct) ? data.xPct : null;
+  const yPct = isFiniteNumber(data.yPct) ? data.yPct : null;
+  if (xPct !== null && yPct !== null) {
+    pin.style.left = `${xPct * 100}%`;
+    pin.style.top = `${yPct * 100}%`;
+  } else {
+    pin.style.left = `${data.x}px`;
+    pin.style.top = `${data.y}px`;
+  }
   pin.style.backgroundColor = data.color;
   pin.dataset.color = data.color;
   pin.dataset.createdAt = data.createdAt || new Date().toISOString();
   pin.dataset.key = key;
   pin.dataset.createdBy = data.createdBy || 'unknown';
+  if (xPct !== null && yPct !== null) {
+    pin.dataset.xPct = String(xPct);
+    pin.dataset.yPct = String(yPct);
+  }
 
   // 生成時刻に合わせてフェード開始
   scheduleFadeAndDelete(pin, pin.dataset.createdAt, key);
@@ -230,20 +252,24 @@ wrapper.addEventListener("click", (e) => {
     return;
   }
 
-  const rect = wrapper.getBoundingClientRect();
+  const rect = imageEl.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
+  const xPct = clamp01(x / rect.width);
+  const yPct = clamp01(y / rect.height);
 
   // 一時的にDOMに表示
   const pin = document.createElement("div");
   pin.className = "pin";
-  pin.style.left = `${x}px`;
-  pin.style.top = `${y}px`;
+  pin.style.left = `${xPct * 100}%`;
+  pin.style.top = `${yPct * 100}%`;
   pin.style.backgroundColor = currentColor;
   pin.dataset.color = currentColor;
   const createdAt = new Date();
   pin.dataset.createdAt = createdAt.toISOString();
   pin.dataset.createdBy = sessionId;
+  pin.dataset.xPct = String(xPct);
+  pin.dataset.yPct = String(yPct);
 
   pin.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -281,7 +307,7 @@ wrapper.addEventListener("click", (e) => {
   if (db) {
     const pinsRef = db.ref('pins');
     const newRef = pinsRef.push();
-    newRef.set({ x, y, color: currentColor, createdAt: pin.dataset.createdAt, createdBy: sessionId })
+    newRef.set({ xPct, yPct, x, y, color: currentColor, createdAt: pin.dataset.createdAt, createdBy: sessionId })
       .then(() => {
         // 仮のキーを実際のDBキーに置き換え
         pin.dataset.key = newRef.key;
