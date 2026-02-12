@@ -27,9 +27,55 @@ let db = null;
 // デバッグログ：スクリプト読み込み確認
 console.log('script.js loaded - firebase defined?', typeof firebase !== 'undefined');
 
-// セッションIDを生成（このブラウザセッション固有のID）
-const sessionId = 'user-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+// セッションIDを生成（リロード後も同一ユーザー扱いにするため保存）
+let sessionId = null;
+try {
+  sessionId = localStorage.getItem('pinSessionId');
+} catch (e) {
+  sessionId = null;
+}
+if (!sessionId) {
+  sessionId = 'user-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+  try {
+    localStorage.setItem('pinSessionId', sessionId);
+  } catch (e) {
+    // localStorage unavailable; fallback to in-memory sessionId
+  }
+}
 console.log('Session ID:', sessionId);
+
+const FADE_DURATION_MS = 30000;
+
+function scheduleFadeAndDelete(pinEl, createdAtIso, key) {
+  const createdAtTime = new Date(createdAtIso).getTime();
+  const now = Date.now();
+  const elapsed = now - createdAtTime;
+  const remaining = FADE_DURATION_MS - elapsed;
+
+  if (remaining <= 0) {
+    pinEl.style.opacity = "0";
+    if (db && key) {
+      db.ref(`pins/${key}`).remove().catch((err) => console.error('Failed to auto-delete pin:', err));
+    }
+    return;
+  }
+
+  const currentOpacity = Math.max(0, 1 - elapsed / FADE_DURATION_MS);
+  pinEl.style.opacity = String(currentOpacity);
+  pinEl.style.transition = `opacity ${remaining}ms linear`;
+
+  requestAnimationFrame(() => {
+    pinEl.style.opacity = "0";
+  });
+
+  setTimeout(() => {
+    if (db && key) {
+      db.ref(`pins/${key}`).remove()
+        .then(() => console.log('Pin faded out & deleted after 30s:', key))
+        .catch((err) => console.error('Failed to auto-delete pin:', err));
+    }
+  }, remaining + 100);
+}
 
 /* ===== 色選択処理 ===== */
 colorRadios.forEach((radio) => {
@@ -88,9 +134,8 @@ function addPinFromData(key, data) {
   pin.dataset.key = key;
   pin.dataset.createdBy = data.createdBy || 'unknown';
 
-  //手動追記
-  pin.style.opacity = "1";
-  pin.style.transition = "opacity 30s linear";
+  // 生成時刻に合わせてフェード開始
+  scheduleFadeAndDelete(pin, pin.dataset.createdAt, key);
 
 
   pin.addEventListener("click", (event) => {
@@ -251,26 +296,11 @@ wrapper.addEventListener("click", (e) => {
         //    .catch((err) => console.error('Failed to auto-delete pin:', err));
         //}, 30000);
         
-        // フェードアウト開始（置いた瞬間から30秒かけて透明に）
+        // フェード開始と自動削除を統一
         const fadeEl = document.querySelector(`.pin[data-key="${newRef.key}"]`);
         if (fadeEl) {
-          fadeEl.style.opacity = "1";
-          fadeEl.style.transition = "opacity 30s linear";
-
-          // 次の描画フレームで opacity を変更（確実にtransitionを効かせる）
-          requestAnimationFrame(() => {
-            fadeEl.style.opacity = "0";
-          });
+          scheduleFadeAndDelete(fadeEl, pin.dataset.createdAt, newRef.key);
         }
-
-        // フェード完了後にDBから削除
-        const timeoutId = setTimeout(() => {
-          console.log('Fade completed, removing pin:', newRef.key);
-          db.ref(`pins/${newRef.key}`).remove()
-            .then(() => console.log('Pin faded out & deleted after 30s:', newRef.key))
-            .catch((err) => console.error('Failed to auto-delete pin:', err));
-        }, 30100);
-        console.log('Timer set with ID:', timeoutId);
       })
       .catch((err) => console.error('Failed to save pin:', err));
     }
