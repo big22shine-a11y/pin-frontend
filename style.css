@@ -94,8 +94,8 @@ h1 {
     font-size: 13px;
   }
 
-  .pin {
-    width: 10px;
-    height: 10px;
+  #image-wrapper .pin {
+    width: 8px !important;
+    height: 8px !important;
   }
 }
