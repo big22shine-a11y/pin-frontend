@@ -104,6 +104,8 @@ colorRadios.forEach((radio) => {
 if (window.FIREBASE_CONFIG && typeof firebase !== "undefined") {
   try {
     firebase.initializeApp(window.FIREBASE_CONFIG);
+    const appCheck = firebase.appCheck();
+    appCheck.activate('6Ld1e2osAAAAAPWqPRjdPUyL34_6B9ChPI596OZy', true);
     db = firebase.database();
     auth = firebase.auth();
     auth.onAuthStateChanged((user) => {
@@ -124,6 +126,8 @@ window.addEventListener('load', () => {
     if (window.FIREBASE_CONFIG && typeof firebase !== 'undefined') {
       if (!firebase.apps || firebase.apps.length === 0) {
         firebase.initializeApp(window.FIREBASE_CONFIG);
+        const appCheck = firebase.appCheck();
+        appCheck.activate('6Ld1e2osAAAAAPWqPRjdPUyL34_6B9ChPI596OZy', true);
         db = firebase.database();
         auth = firebase.auth();
         auth.onAuthStateChanged((user) => {
