@@ -249,6 +249,11 @@ if (db) {
 wrapper.addEventListener("click", (e) => {
   if (e.target.id !== "image") return;
 
+  if (db && (!authReady || !authUid)) {
+    alert('認証の準備中です。少し待ってからもう一度お試しください。');
+    return;
+  }
+
   // セッションIDごとのピン数制限チェック（1人当たり5個）
   // DBに実際に保存されたピン（DB キーを持つ、仮キー除外）だけをカウント
   const ownerId = db ? authUid : sessionId;
