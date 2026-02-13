@@ -25,6 +25,11 @@ let selectedPin = null;
 // Firebase Realtime Database 参照（null なら未設定）
 let db = null;
 
+// Firebase Auth (anonymous) 参照
+let auth = null;
+let authUid = null;
+let authReady = false;
+
 
 
 // デバッグログ：スクリプト読み込み確認
@@ -100,6 +105,12 @@ if (window.FIREBASE_CONFIG && typeof firebase !== "undefined") {
   try {
     firebase.initializeApp(window.FIREBASE_CONFIG);
     db = firebase.database();
+    auth = firebase.auth();
+    auth.onAuthStateChanged((user) => {
+      authUid = user ? user.uid : null;
+      authReady = true;
+    });
+    auth.signInAnonymously().catch((err) => console.error('Anonymous sign-in failed:', err));
     console.log('Firebase initialized in script.js, db ready:', !!db);
   } catch (err) {
     console.warn("Firebase init failed:", err);
@@ -114,6 +125,12 @@ window.addEventListener('load', () => {
       if (!firebase.apps || firebase.apps.length === 0) {
         firebase.initializeApp(window.FIREBASE_CONFIG);
         db = firebase.database();
+        auth = firebase.auth();
+        auth.onAuthStateChanged((user) => {
+          authUid = user ? user.uid : null;
+          authReady = true;
+        });
+        auth.signInAnonymously().catch((err) => console.error('Anonymous sign-in failed:', err));
         console.log('Firebase initialized on window.load, db ready:', !!db);
       }
     }
@@ -174,7 +191,7 @@ function addPinFromData(key, data) {
       `${date.getSeconds()}秒`;
 
     // 削除権の確認
-    const canDelete = (pin.dataset.createdBy === sessionId);
+    const canDelete = db ? (authUid && pin.dataset.createdBy === authUid) : (pin.dataset.createdBy === sessionId);
     const deleteStatus = canDelete ? '（削除可）' : '（削除不可 - 他のユーザーが作成）';
     pinComment.textContent = `色：${pin.dataset.color} / 刺された時刻：${formattedTime} ${deleteStatus}`;
 
@@ -234,7 +251,8 @@ wrapper.addEventListener("click", (e) => {
 
   // セッションIDごとのピン数制限チェック（1人当たり5個）
   // DBに実際に保存されたピン（DB キーを持つ、仮キー除外）だけをカウント
-  const allUserPins = wrapper.querySelectorAll(`.pin[data-created-by="${sessionId}"][data-key]`);
+  const ownerId = db ? authUid : sessionId;
+  const allUserPins = ownerId ? wrapper.querySelectorAll(`.pin[data-created-by="${ownerId}"][data-key]`) : [];
   const userPins = Array.from(allUserPins).filter(pin => !pin.dataset.key.startsWith('temp-'));
   console.log('=== ピン数カウント ===');
   console.log('sessionId:', sessionId);
@@ -267,7 +285,7 @@ wrapper.addEventListener("click", (e) => {
   pin.dataset.color = currentColor;
   const createdAt = new Date();
   pin.dataset.createdAt = createdAt.toISOString();
-  pin.dataset.createdBy = sessionId;
+  pin.dataset.createdBy = ownerId || sessionId;
   pin.dataset.xPct = String(xPct);
   pin.dataset.yPct = String(yPct);
 
@@ -285,7 +303,7 @@ wrapper.addEventListener("click", (e) => {
       `${date.getSeconds()}秒`;
 
     // 削除権の確認
-    const canDelete = (pin.dataset.createdBy === sessionId);
+    const canDelete = db ? (authUid && pin.dataset.createdBy === authUid) : (pin.dataset.createdBy === sessionId);
     const deleteStatus = canDelete ? '（削除可）' : '（削除不可 - 他のユーザーが作成）';
     pinComment.textContent = `色：${pin.dataset.color} / 刺された時刻：${formattedTime} ${deleteStatus}`;
 
@@ -305,9 +323,13 @@ wrapper.addEventListener("click", (e) => {
   // DBがある場合は保存（push）し、キーを割り当てる
   console.log('Attempting to save pin to DB? db=', !!db);
   if (db) {
+    if (!authReady || !authUid) {
+      console.warn('Auth not ready; pin not saved yet.');
+      return;
+    }
     const pinsRef = db.ref('pins');
     const newRef = pinsRef.push();
-    newRef.set({ xPct, yPct, x, y, color: currentColor, createdAt: pin.dataset.createdAt, createdBy: sessionId })
+    newRef.set({ xPct, yPct, x, y, color: currentColor, createdAt: pin.dataset.createdAt, createdBy: authUid })
       .then(() => {
         // 仮のキーを実際のDBキーに置き換え
         pin.dataset.key = newRef.key;
@@ -337,7 +359,12 @@ deleteButton.addEventListener("click", () => {
   if (!selectedPin) return;
 
   // 削除権チェック
-  if (selectedPin.dataset.createdBy !== sessionId) {
+  if (db) {
+    if (!authUid || selectedPin.dataset.createdBy !== authUid) {
+      alert('このピンは別のユーザーが作成したため、削除できません。');
+      return;
+    }
+  } else if (selectedPin.dataset.createdBy !== sessionId) {
     alert('このピンは別のユーザーが作成したため、削除できません。');
     return;
   }
