@@ -217,25 +217,6 @@ function addPinFromData(key, data) {
 if (db) {
   const pinsRef = db.ref('pins');
 
-  // ページロード時に60秒以上古いピンを削除
-  pinsRef.once('value', (snapshot) => {
-    const now = new Date().getTime();
-    snapshot.forEach((childSnapshot) => {
-      const key = childSnapshot.key;
-      const data = childSnapshot.val();
-      const createdAtTime = isFiniteNumber(data.createdAtMs)
-        ? data.createdAtMs
-        : new Date(data.createdAt).getTime();
-      const ageMs = now - createdAtTime;
-      
-      // 60秒以上古いピンはDBから削除
-      if (ageMs > 60000) {
-        console.log(`Cleaning up old pin: ${key} (age: ${Math.floor(ageMs / 1000)}s)`);
-        pinsRef.child(key).remove();
-      }
-    });
-  });
-
   // 新しいピンが追加されたら反映
   pinsRef.on('child_added', (snapshot) => {
     const key = snapshot.key;
