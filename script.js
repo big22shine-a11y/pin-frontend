@@ -70,9 +70,7 @@ function scheduleFadeAndDelete(pinEl, createdAtIso, createdAtMs, key) {
 
   if (remaining <= 0) {
     pinEl.style.opacity = "0";
-    if (db && key) {
-      db.ref(`pins/${key}`).remove().catch((err) => console.error('Failed to auto-delete pin:', err));
-    }
+    // Already faded/deleted via timeout or previous call - skip
     return;
   }
 
@@ -155,8 +153,12 @@ window.addEventListener('load', () => {
 /* ===== DBから来たピンをDOMに反映するヘルパー ===== */
 function addPinFromData(key, data) {
   // 既に同一キーの要素があれば追加しない
-  if (document.querySelector(`.pin[data-key=\"${key}\"]`)) return;
+  if (document.querySelector(`.pin[data-key=\"${key}\"]`)) {
+    console.log(`[addPinFromData] Skipped duplicate key: ${key}`);
+    return;
+  }
 
+  console.log(`[addPinFromData] Adding pin. Key: ${key}, CreatedBy: ${data.createdBy}, CreatedAtMs: ${data.createdAtMs}`);
   // 仮キーのピン（同じcreatedAtを持つ）があれば削除（DBキーに置き換わるため）
   const tempKey = 'temp-' + data.createdAt;
   const tempPin = document.querySelector(`.pin[data-key=\"${tempKey}\"]`);
