@@ -85,7 +85,7 @@ function scheduleFadeAndDelete(pinEl, createdAtIso, createdAtMs, key) {
   });
 
   setTimeout(() => {
-    if (db && key) {
+    if (db && key && pinEl.dataset.createdBy === (authUid || sessionId)) {
       db.ref(`pins/${key}`).remove()
         .then(() => console.log('Pin faded out & deleted after 60s:', key))
         .catch((err) => console.error('Failed to auto-delete pin:', err));
