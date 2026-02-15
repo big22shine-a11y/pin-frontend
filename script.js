@@ -380,6 +380,19 @@ wrapper.addEventListener("click", (e) => {
         pin.dataset.key = newRef.key;
         console.log('Pin saved to DB with key', newRef.key);
         
+        // ログにも保存（日付別）
+        const logDate = new Date(createdAtMs).toISOString().split('T')[0]; // YYYY-MM-DD
+        db.ref(`pin_logs/${logDate}/${newRef.key}`).set({
+          xPct,
+          yPct,
+          x,
+          y,
+          color: currentColor,
+          createdAt: createdAtIso,
+          createdAtMs: createdAtMs,
+          createdBy: authUid
+        }).catch(err => console.warn('Failed to save pin log:', err));
+        
         // 30秒後に自動削除するタイマーをセット
         //console.log('Setting auto-delete timer for key:', newRef.key);
         //const timeoutId = setTimeout(() => {
@@ -424,3 +437,103 @@ deleteButton.addEventListener("click", () => {
   selectedPin = null;
   pinInfo.classList.add("hidden");
 });
+
+/* ===== 今日のログを画像としてエクスポート ===== */
+const exportButton = document.getElementById('export-today-logs');
+if (exportButton) {
+  exportButton.addEventListener('click', async () => {
+    if (!db) {
+      alert('Firebase が初期化されていません。ログ機能を使用するにはFirebase設定が必要です。');
+      return;
+    }
+
+    exportButton.disabled = true;
+    exportButton.textContent = 'ログを取得中...';
+
+    try {
+      // 今日の日付を取得
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      console.log(`Fetching logs for date: ${today}`);
+
+      // ログデータを取得
+      const logsSnapshot = await db.ref(`pin_logs/${today}`).once('value');
+      const logsData = logsSnapshot.val();
+
+      if (!logsData || Object.keys(logsData).length === 0) {
+        alert(`${today} のログがありません。`);
+        exportButton.disabled = false;
+        exportButton.textContent = '今日のログを画像として保存';
+        return;
+      }
+
+      console.log(`Found ${Object.keys(logsData).length} logs for today`);
+      exportButton.textContent = `${Object.keys(logsData).length}個のピンを画像化中...`;
+
+      // 現在のピンを一時的に非表示にして復元用に保存
+      const currentPins = wrapper.querySelectorAll('.pin');
+      const pinVisibility = Array.from(currentPins).map(pin => ({
+        element: pin,
+        display: pin.style.display
+      }));
+      currentPins.forEach(pin => pin.style.display = 'none');
+
+      // ログからピンを一時的に作成
+      const tempPins = [];
+      Object.entries(logsData).forEach(([key, data]) => {
+        const pin = document.createElement("div");
+        pin.className = "pin temp-export-pin";
+        const xPct = isFiniteNumber(data.xPct) ? data.xPct : null;
+        const yPct = isFiniteNumber(data.yPct) ? data.yPct : null;
+
+        if (xPct !== null && yPct !== null) {
+          pin.style.left = `${xPct * 100}%`;
+          pin.style.top = `${yPct * 100}%`;
+        }
+        pin.style.backgroundColor = data.color;
+        pin.style.opacity = '1'; // 完全に表示
+        wrapper.appendChild(pin);
+        tempPins.push(pin);
+      });
+
+      // 少し待ってDOMを安定させる
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // html2canvasで画像化
+      const canvas = await html2canvas(wrapper, {
+        backgroundColor: '#ffffff',
+        scale: 2, // 高解像度
+        logging: false
+      });
+
+      // 一時ピンを削除
+      tempPins.forEach(pin => pin.remove());
+
+      // 元のピンの表示を復元
+      pinVisibility.forEach(({element, display}) => {
+        element.style.display = display;
+      });
+
+      // 画像をダウンロード
+      const link = document.createElement('a');
+      link.download = `moomin-map-log-${today}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      exportButton.textContent = '今日のログを画像として保存';
+      exportButton.disabled = false;
+      console.log('Export completed successfully');
+
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert(`画像のエクスポートに失敗しました: ${error.message}`);
+      exportButton.textContent = '今日のログを画像として保存';
+      exportButton.disabled = false;
+
+      // エラー時も元の表示を復元
+      const allTempPins = wrapper.querySelectorAll('.temp-export-pin');
+      allTempPins.forEach(pin => pin.remove());
+      const currentPins = wrapper.querySelectorAll('.pin');
+      currentPins.forEach(pin => pin.style.display = '');
+    }
+  });
+}

@@ -62,6 +62,13 @@
     </button>
   </div>
 
+  <!-- ログ画像エクスポートボタン -->
+  <div id="export-controls">
+    <button id="export-today-logs">
+      今日のログを画像として保存
+    </button>
+  </div>
+
   <!-- 画像とピンをまとめるラッパー -->
   <div id="image-wrapper">
     <!-- ピンを立てる対象画像 -->
@@ -74,6 +81,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <!-- html2canvas for image export -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <!--
     To enable cross-user persistent pins, create a Firebase project and set
