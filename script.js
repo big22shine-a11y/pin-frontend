@@ -87,13 +87,26 @@ function scheduleFadeAndDelete(pinEl, createdAtIso, createdAtMs, key) {
     const createdByValue = pinEl.dataset.createdBy;
     const ownershipMatches = createdByValue === currentAuthUid;
     
+    // Check if pin element still exists in DOM (not already deleted)
+    if (!document.contains(pinEl)) {
+      console.log(`[Auto-Delete] Pin DOM element already removed, skipping deletion for key: ${key}`);
+      return;
+    }
+    
     console.log(`[Auto-Delete Debug] Key: ${key}, Current Auth: ${currentAuthUid}, CreatedBy: ${createdByValue}, Ownership Match: ${ownershipMatches}`);
     
     if (db && key && ownershipMatches) {
       console.log(`[Auto-Delete] Proceeding with deletion for key: ${key}`);
       db.ref(`pins/${key}`).remove()
         .then(() => console.log('Pin faded out & deleted after 60s:', key))
-        .catch((err) => console.error('Failed to auto-delete pin:', err));
+        .catch((err) => {
+          // Already deleted by another client or permission issue - not a critical error
+          if (err.code === 'PERMISSION_DENIED' && !document.querySelector(`.pin[data-key="${key}"]`)) {
+            console.log('Pin already deleted from cache, ignoring permission error:', key);
+          } else {
+            console.error('Failed to auto-delete pin:', err);
+          }
+        });
     } else {
       console.log(`[Auto-Delete] Skipped deletion - condition failed. db=${!!db}, key=${!!key}, owned=${ownershipMatches}`);
     }
