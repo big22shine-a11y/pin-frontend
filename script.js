@@ -295,6 +295,13 @@ wrapper.addEventListener("click", (e) => {
     return;
   }
 
+  // 同じ色のピンがすでに存在するかチェック
+  const sameColorPin = userPins.find(pin => pin.dataset.color === currentColor);
+  if (sameColorPin) {
+    alert('この色のピンはすでに配置されています。同じ色のピンは1つまでです。');
+    return;
+  }
+
   const rect = imageEl.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
