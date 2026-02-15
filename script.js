@@ -471,11 +471,14 @@ if (exportButton) {
 
       // 現在のピンを一時的に非表示にして復元用に保存
       const currentPins = wrapper.querySelectorAll('.pin');
-      const pinVisibility = Array.from(currentPins).map(pin => ({
+      const pinBackup = Array.from(currentPins).map(pin => ({
         element: pin,
-        display: pin.style.display
+        parentNode: pin.parentNode,
+        nextSibling: pin.nextSibling
       }));
-      currentPins.forEach(pin => pin.style.display = 'none');
+      
+      // 一時的にすべてのピンを削除（DOMから）
+      currentPins.forEach(pin => pin.remove());
 
       // ログからピンを一時的に作成
       const tempPins = [];
@@ -508,9 +511,13 @@ if (exportButton) {
       // 一時ピンを削除
       tempPins.forEach(pin => pin.remove());
 
-      // 元のピンの表示を復元
-      pinVisibility.forEach(({element, display}) => {
-        element.style.display = display;
+      // 元のピンをDOMに復元
+      pinBackup.forEach(({element, parentNode, nextSibling}) => {
+        if (nextSibling) {
+          parentNode.insertBefore(element, nextSibling);
+        } else {
+          parentNode.appendChild(element);
+        }
       });
 
       // 画像をダウンロード
