@@ -471,14 +471,12 @@ if (exportButton) {
 
       // 現在のピンを一時的に非表示にして復元用に保存
       const currentPins = wrapper.querySelectorAll('.pin');
-      const pinBackup = Array.from(currentPins).map(pin => ({
-        element: pin,
-        parentNode: pin.parentNode,
-        nextSibling: pin.nextSibling
-      }));
-      
-      // 一時的にすべてのピンを削除（DOMから）
-      currentPins.forEach(pin => pin.remove());
+      const pinBackup = Array.from(currentPins).map(pin => {
+        // 計算されたdisplay値を保存
+        const computedDisplay = window.getComputedStyle(pin).display;
+        pin.style.display = 'none';
+        return { pin, computedDisplay };
+      });
 
       // ログからピンを一時的に作成
       const tempPins = [];
@@ -511,13 +509,9 @@ if (exportButton) {
       // 一時ピンを削除
       tempPins.forEach(pin => pin.remove());
 
-      // 元のピンをDOMに復元
-      pinBackup.forEach(({element, parentNode, nextSibling}) => {
-        if (nextSibling) {
-          parentNode.insertBefore(element, nextSibling);
-        } else {
-          parentNode.appendChild(element);
-        }
+      // 元のピンの表示を復元
+      pinBackup.forEach(({pin, computedDisplay}) => {
+        pin.style.display = computedDisplay;
       });
 
       // 画像をダウンロード
